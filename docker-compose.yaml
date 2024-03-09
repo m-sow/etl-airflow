@@ -33,6 +33,13 @@ services:
     depends_on:
       - postgresql
 
+  grafana:
+    image: grafana/grafana
+    ports:
+      - 3000:3000
+    depends_on:
+      - postgresql
+
   airflow-init:
     <<: *airflow-common
     entrypoint: /bin/bash -c "/bin/bash -c \"$${@}\""
