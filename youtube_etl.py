@@ -1,6 +1,3 @@
-# -*- coding: utf-8 -*-
-
-import pandas as pd
 import os
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
@@ -9,30 +6,43 @@ from utils.connect_db import Engine
 from sqlalchemy.orm import Session, declarative_base
 # from utils.models import Comment
 
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Enum, Integer, String, DateTime
 
+from textblob import TextBlob
 
 config = dotenv_values(".env")
 
 Base = declarative_base()
+
+import enum
+class SentimentEnum(enum.Enum):
+    POSITIVE='Positive'
+    NEGATIVE='Negative'
 
 class Comment(Base):
     __tablename__ = 'comments'
     id = Column(Integer, primary_key=True, autoincrement= True)
     author = Column(String)
     text= Column(String)
+    # sentiment=Column(Enum(SentimentEnum))
+    sentiment = Column(String)
     published_at = Column(DateTime(timezone=True))
 
 
 def process_comments(response_items):
     comments = []
+    
     for comment in response_items:
         author = comment['snippet']['topLevelComment']['snippet']['authorDisplayName']
         comment_text = comment['snippet']['topLevelComment']['snippet']['textOriginal']
-        publish_at = comment['snippet']['topLevelComment']['snippet']['publishedAt']
+        published_at = comment['snippet']['topLevelComment']['snippet']['publishedAt']
+        
+        blob = TextBlob(comment_text)
+        # sentiment= SentimentEnum.POSITIVE if blob.sentiment.polarity > 0 else SentimentEnum.NEGATIVE
+        sentiment= 'Positive' if blob.sentiment.polarity > 0 else 'Negative'
 
         comment_info = {'author': author, 
-                        'text': comment_text, 'published_at': publish_at}
+                        'text': comment_text, 'sentiment': sentiment, 'published_at': published_at}
 
         comments.append(comment_info)
     print(f'Finished processing {len(comments)} comments.')
@@ -51,7 +61,7 @@ def load_comments(comments):
     session=Session(engine)
     
     for comment in comments:
-        session.add(Comment(author=comment['author'], text=comment['text'], published_at=comment['published_at']))
+        session.add(Comment(author=comment['author'], text=comment['text'], sentiment= comment['sentiment'], published_at=comment['published_at']))
         session.commit()  
         
     session.close()      
